@@ -7,45 +7,71 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Daily Activity">
 <meta name="theme-color" content="#0b5cab">
+<meta name="build" content="v2-sliders">
 <title>Daily Activity</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:#f2f4f7;color:#111;padding:env(safe-area-inset-top) 12px 40px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:#f2f4f7;color:#111;padding:env(safe-area-inset-top) 12px 40px;-webkit-user-select:none;user-select:none}
 h1{font-size:22px;margin:16px 4px}.card{background:#fff;border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px #0001}
-.row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee}.row:last-child{border:0}
-.lbl{flex:1;min-width:0;overflow-wrap:anywhere;font-size:16px;padding-right:8px}.step{flex:0 0 auto;display:flex;align-items:center;gap:6px}
-.step button{width:52px;height:52px;border-radius:12px;border:0;font-size:28px;background:#e6eefa;color:#0b5cab}
-.step input{width:60px;height:52px;text-align:center;font-size:22px;border:1px solid #ccd;border-radius:10px}
-label.f{display:block;font-size:14px;color:#555;margin:6px 0 4px}select,input[type=date]{width:100%;height:48px;font-size:17px;border:1px solid #ccd;border-radius:10px;padding:0 10px;background:#fff}
-.hrs{display:flex;gap:8px}.hrs>div{flex:1}pre{white-space:pre-wrap;font:15px/1.4 ui-monospace,monospace;margin:0}
-.btns{display:grid;gap:10px}.btns button{height:56px;border:0;border-radius:14px;font-size:18px;font-weight:600}
+.f{padding:10px 0 14px;border-bottom:1px solid #eee}.f:last-child{border:0}
+.hd{display:flex;justify-content:space-between;align-items:baseline}.lbl{font-size:16px;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.num{font-size:30px;font-weight:700;color:#0b5cab;min-width:56px;text-align:right}
+.sl{position:relative;height:52px;margin:6px 4px;touch-action:pan-y;cursor:pointer}
+.tr{position:absolute;left:0;right:0;top:20px;height:12px;border-radius:6px;background:#e3e8ef}
+.fi{position:absolute;left:0;top:20px;height:12px;border-radius:6px;background:#0b5cab}
+.th{position:absolute;top:4px;width:44px;height:44px;margin-left:-22px;border-radius:50%;background:#fff;border:3px solid #0b5cab;box-shadow:0 2px 6px #0003}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{flex:1 0 auto;min-width:48px;height:44px;border-radius:22px;border:1.5px solid #ccd5e0;background:#fff;font-size:17px;color:#222;padding:0 12px}
+.chip.on{background:#0b5cab;color:#fff;border-color:#0b5cab}
+label.s{display:block;font-size:14px;color:#555;margin:10px 0 6px}
+input[type=date],select{width:100%;height:48px;font-size:17px;border:1px solid #ccd;border-radius:10px;padding:0 10px;background:#fff}
+#cust{display:none;gap:8px;margin-top:8px}#cust.show{display:flex}#cust select{flex:1}
+pre{white-space:pre-wrap;font:15px/1.4 ui-monospace,monospace;margin:0;-webkit-user-select:text;user-select:text}
+.btns{display:grid;gap:10px}.btns button{min-height:56px;border:0;border-radius:14px;font-size:18px;font-weight:600;padding:8px}
 #wa{background:#25d366;color:#fff}#cp{background:#0b5cab;color:#fff}#rs{background:#e4e4e7}
 </style></head><body>
 <h1>Daily Activity</h1>
-<div class="card"><label class="f">Date</label><input type="date" id="date">
-<label class="f">Hours knocked (optional)</label><div class="hrs"><div><select id="hs"></select></div><div><select id="he"></select></div></div></div>
+<div class="card"><label class="s" style="margin-top:0">Date</label><input type="date" id="date">
+<label class="s">Hours knocked</label><div class="chips" id="hp"></div>
+<div id="cust"><select id="hs"></select><select id="he"></select></div></div>
 <div class="card" id="fields"></div>
 <div class="card"><pre id="pv"></pre></div>
 <div class="btns"><button id="wa">Post to All Branches Daily Tracking Upload</button><button id="cp">Copy text</button><button id="rs">Reset</button></div>
 <script>
-var F=["Doors knocked","Contacts made","Appointments scheduled","No-show appointments","Appointments/demos completed","Consulting agreements signed","Adjuster meetings scheduled","Adjuster meetings denied","Adjuster meetings won","Contracts signed","Reviews posted"];
+var F=[["Doors knocked",100,[10,20,30,40,50]],["Contacts made",50,[0,5,10,15,20]],["Appointments scheduled",10],["No-show appointments",10],["Appointments/demos completed",10],["Consulting agreements signed",10],["Adjuster meetings scheduled",10],["Adjuster meetings denied",10],["Adjuster meetings won",10],["Contracts signed",10],["Reviews posted",10]];
+var HP=[["9–12",540,720],["12–3",720,900],["3–6",900,1080],["3–6:30",900,1110],["4–7",960,1140]];
+function $(i){return document.getElementById(i)}
 function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-var KEY="da-"+today(),st=JSON.parse(localStorage.getItem(KEY)||"null")||{date:today(),hs:"",he:"",v:F.map(function(){return 0})};
-function fmt(m,ap){var h=Math.floor(m/60),mi=m%60,h12=h%12||12;return h12+(mi?":"+String(mi).padStart(2,"0"):"")+(ap?" "+(h<12?"AM":"PM"):"")}
-["hs","he"].forEach(function(id){var s=document.getElementById(id);s.add(new Option(id=="hs"?"Start —":"End —",""));for(var m=360;m<=1320;m+=15)s.add(new Option(fmt(m,1),m));});
-var fd=document.getElementById("fields");
-F.forEach(function(n,i){var r=document.createElement("div");r.className="row";r.innerHTML='<div class="lbl">'+n+'</div><div class="step"><button data-d="-1">−</button><input type="number" inputmode="numeric" min="0"><button data-d="1">+</button></div>';
-var inp=r.querySelector("input");inp.id="f"+i;inp.onfocus=function(){inp.select()};inp.oninput=function(){st.v[i]=Math.max(0,parseInt(inp.value)||0);upd(1)};
-r.querySelectorAll("button").forEach(function(b){b.onclick=function(){st.v[i]=Math.max(0,st.v[i]+ +b.dataset.d);upd()}});fd.appendChild(r)});
+function blank(){return{date:today(),hs:"",he:"",cu:false,v:F.map(function(){return 0})}}
+var KEY="da-"+today(),st=JSON.parse(localStorage.getItem(KEY)||"null")||blank();
+function fmt(m,ap){var h=Math.floor(m/60),mi=m%60;return (h%12||12)+(mi?":"+String(mi).padStart(2,"0"):"")+(ap?" "+(h<12?"AM":"PM"):"")}
+["hs","he"].forEach(function(id){var s=$(id);s.add(new Option(id=="hs"?"Start":"End",""));for(var m=360;m<=1320;m+=15)s.add(new Option(fmt(m,1),m));s.onchange=function(){st[id]=s.value;upd()}});
+var hp=$("hp");
+HP.forEach(function(h){var c=document.createElement("button");c.className="chip";c.textContent=h[0];c.onclick=function(){var on=st.hs==h[1]&&st.he==h[2]&&!st.cu;st.cu=false;st.hs=on?"":String(h[1]);st.he=on?"":String(h[2]);upd()};c._h=h;hp.appendChild(c)});
+var cc=document.createElement("button");cc.className="chip";cc.textContent="Custom";cc.onclick=function(){st.cu=!st.cu;if(!st.cu){st.hs=st.he=""}upd()};hp.appendChild(cc);
+var rows=[];
+F.forEach(function(f,i){var max=f[1],picks=f[2]||[0,1,2,3,5];var r=document.createElement("div");r.className="f";
+r.innerHTML='<div class="hd"><div class="lbl">'+f[0]+'</div><div class="num">0</div></div><div class="sl"><div class="tr"></div><div class="fi"></div><div class="th"></div></div><div class="chips"></div>';
+var sl=r.querySelector(".sl"),ch=r.querySelector(".chips");
+picks.forEach(function(p){var c=document.createElement("button");c.className="chip";c.textContent=p;c.onclick=function(){st.v[i]=p;upd()};ch.appendChild(c)});
+var drag=false;function set(e){var b=sl.getBoundingClientRect(),x=Math.min(1,Math.max(0,(e.clientX-b.left)/b.width)),v=Math.round(x*max);if(v!==st.v[i]){st.v[i]=v;upd()}}
+sl.addEventListener("pointerdown",function(e){drag=true;sl.setPointerCapture(e.pointerId);set(e)});
+sl.addEventListener("pointermove",function(e){if(drag)set(e)});
+["pointerup","pointercancel","lostpointercapture"].forEach(function(t){sl.addEventListener(t,function(){drag=false})});
+rows.push({r:r,max:max,picks:picks});$("fields").appendChild(r)});
 function text(){var p=st.date.split("-"),d=new Date(+p[0],p[1]-1,+p[2]);var t="*Daily Activity – "+["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]+" "+(d.getMonth()+1)+"/"+d.getDate()+"*\n";
-if(st.hs&&st.he){var a=+st.hs,b=+st.he,same=(a<720)==(b<720);t+="Hours: "+(same?fmt(a):fmt(a,1))+"–"+fmt(b,1)+"\n"}
-return t+F.map(function(n,i){return n+": "+st.v[i]}).join("\n")}
-function upd(typing){F.forEach(function(n,i){if(!typing)document.getElementById("f"+i).value=st.v[i]});document.getElementById("date").value=st.date;
-document.getElementById("hs").value=st.hs;document.getElementById("he").value=st.he;document.getElementById("pv").textContent=text();localStorage.setItem(KEY,JSON.stringify(st))}
-document.getElementById("date").onchange=function(e){st.date=e.target.value||today();upd()};
-document.getElementById("hs").onchange=function(e){st.hs=e.target.value;upd()};document.getElementById("he").onchange=function(e){st.he=e.target.value;upd()};
-document.getElementById("wa").onclick=function(){location.href="https://wa.me/?text="+encodeURIComponent(text())};
-document.getElementById("cp").onclick=function(){var b=this,t=text(),ok=function(){b.textContent="Copied!";setTimeout(function(){b.textContent="Copy text"},1500)};
-if(navigator.clipboard)navigator.clipboard.writeText(t).then(ok,fb);else fb();function fb(){var x=document.createElement("textarea");x.value=t;document.body.appendChild(x);x.select();document.execCommand("copy");x.remove();ok()}};
-document.getElementById("rs").onclick=function(){if(confirm("Reset all values?")){st={date:today(),hs:"",he:"",v:F.map(function(){return 0})};upd()}};
+if(st.hs&&st.he){var a=+st.hs,b=+st.he;t+="Hours: "+((a<720)==(b<720)?fmt(a):fmt(a,1))+"–"+fmt(b,1)+"\n"}
+return t+F.map(function(f,i){return f[0]+": "+st.v[i]}).join("\n")}
+function upd(){rows.forEach(function(o,i){var v=st.v[i],pc=v/o.max*100;o.r.querySelector(".num").textContent=v;o.r.querySelector(".fi").style.width=pc+"%";o.r.querySelector(".th").style.left=pc+"%";
+o.r.querySelectorAll(".chip").forEach(function(c){c.classList.toggle("on",+c.textContent===v)})});
+hp.querySelectorAll(".chip").forEach(function(c){c.classList.toggle("on",c._h?(!st.cu&&st.hs==c._h[1]&&st.he==c._h[2]):st.cu)});
+$("cust").classList.toggle("show",st.cu);$("hs").value=st.hs;$("he").value=st.he;$("date").value=st.date;
+$("pv").textContent=text();localStorage.setItem(KEY,JSON.stringify(st))}
+$("date").onchange=function(e){st.date=e.target.value||today();upd()};
+$("wa").onclick=function(){location.href="https://wa.me/?text="+encodeURIComponent(text())};
+$("cp").onclick=function(){var b=this,t=text(),ok=function(){b.textContent="Copied!";setTimeout(function(){b.textContent="Copy text"},1500)};
+function fb(){var x=document.createElement("textarea");x.value=t;document.body.appendChild(x);x.select();document.execCommand("copy");x.remove();ok()}
+if(navigator.clipboard)navigator.clipboard.writeText(t).then(ok,fb);else fb()};
+$("rs").onclick=function(){if(confirm("Reset all values?")){st=blank();upd()}};
 upd();
 </script></body></html>
