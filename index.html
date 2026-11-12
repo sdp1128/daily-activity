@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Daily Activity">
 <meta name="theme-color" content="#0b5cab">
-<meta name="build" content="v2-sliders">
+<meta name="build" content="v3-retail">
 <title>Daily Activity</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -29,12 +29,32 @@ input[type=date],select{width:100%;height:48px;font-size:17px;border:1px solid #
 pre{white-space:pre-wrap;font:15px/1.4 ui-monospace,monospace;margin:0;-webkit-user-select:text;user-select:text}
 .btns{display:grid;gap:10px}.btns button{min-height:56px;border:0;border-radius:14px;font-size:18px;font-weight:600;padding:8px}
 #wa{background:#25d366;color:#fff}#cp{background:#0b5cab;color:#fff}#rs{background:#e4e4e7}
+h2{font-size:18px;margin:2px 0 4px}.sub{font-size:13px;color:#667;margin:0 0 8px}
+input.t{width:100%;height:48px;font-size:17px;border:1px solid #ccd;border-radius:10px;padding:0 10px;background:#fff;-webkit-user-select:text;user-select:text}
+.ent{border:1px solid #e3e8ef;border-radius:12px;padding:10px;margin:10px 0;background:#fafbfd}
+.ent .row{display:flex;gap:8px}.ent .row>*{flex:1;min-width:0}
+.ent label.s{margin:8px 0 4px;font-size:13px}
+.del{border:0;background:none;color:#c0392b;font-size:15px;padding:4px 0;float:right}
+.add{width:100%;min-height:50px;border:1.5px dashed #0b5cab;border-radius:12px;background:#fff;color:#0b5cab;font-size:17px;font-weight:600;margin-top:6px}
+.calc{margin-top:8px;font-size:15px;font-weight:600;color:#0b5cab}
+.fund .chip{font-size:14px;height:40px;padding:0 8px}
+.tot{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:15px}.tot b{text-align:right}
+.job{border-top:1px solid #eee;padding:10px 0}.job:first-of-type{border:0}
+.job .jn{font-weight:700;font-size:16px}.job .st{font-size:14px;color:#333;margin:2px 0 0 4px}.job .gr{color:#0a7a3e;font-weight:700;margin-top:4px}
+
 </style></head><body>
 <h1>Daily Activity</h1>
 <div class="card"><label class="s" style="margin-top:0">Date</label><input type="date" id="date">
 <label class="s">Hours knocked</label><div class="chips" id="hp"></div>
 <div id="cust"><select id="hs"></select><select id="he"></select></div></div>
 <div class="card" id="fields"></div>
+<div class="card" id="rcard"><h2>Retail &amp; add-on sales</h2><p class="sub">Non-insurance contracts and trades added to existing jobs.</p>
+<label class="s">Insurance contract $ signed today (optional)</label><input class="t" id="ins" inputmode="decimal" placeholder="$0">
+<label class="s" style="font-weight:600;color:#111;font-size:16px">Retail sales (new contracts)</label><div id="rsl"></div><button class="add" id="addr">+ Add retail sale</button>
+<label class="s" style="font-weight:600;color:#111;font-size:16px;margin-top:16px">Upsells / add-ons to existing contracts</label><div id="upl"></div><button class="add" id="addu">+ Add upsell</button>
+<datalist id="jobs"></datalist></div>
+<div class="card" id="tcard"><h2>Sold totals</h2><div class="tot" id="tots"></div></div>
+<div class="card" id="lcard"><h2>Contract growth ledger</h2><p class="sub">Every job with upsells, across all days on this phone.</p><div id="ldg"></div></div>
 <div class="card"><pre id="pv"></pre></div>
 <div class="btns"><button id="wa">Post to All Branches Daily Tracking Upload</button><button id="cp">Copy text</button><button id="rs">Reset</button></div>
 <script>
@@ -42,8 +62,9 @@ var F=[["Doors knocked",100,[10,20,30,40,50]],["Contacts made",50,[0,5,10,15,20]
 var HP=[["9–12",540,720],["12–3",720,900],["3–6",900,1080],["3–6:30",900,1110],["4–7",960,1140]];
 function $(i){return document.getElementById(i)}
 function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-function blank(){return{date:today(),hs:"",he:"",cu:false,v:F.map(function(){return 0})}}
+function blank(){return{date:today(),hs:"",he:"",cu:false,v:F.map(function(){return 0}),ins:"",rs:[],up:[]}}
 var KEY="da-"+today(),st=JSON.parse(localStorage.getItem(KEY)||"null")||blank();
+if(st.ins==null)st.ins="";if(!Array.isArray(st.rs))st.rs=[];if(!Array.isArray(st.up))st.up=[];
 function fmt(m,ap){var h=Math.floor(m/60),mi=m%60;return (h%12||12)+(mi?":"+String(mi).padStart(2,"0"):"")+(ap?" "+(h<12?"AM":"PM"):"")}
 ["hs","he"].forEach(function(id){var s=$(id);s.add(new Option(id=="hs"?"Start":"End",""));for(var m=360;m<=1320;m+=15)s.add(new Option(fmt(m,1),m));s.onchange=function(){st[id]=s.value;upd()}});
 var hp=$("hp");
@@ -61,17 +82,87 @@ sl.addEventListener("pointermove",function(e){if(drag)set(e)});
 rows.push({r:r,max:max,picks:picks});$("fields").appendChild(r)});
 function text(){var p=st.date.split("-"),d=new Date(+p[0],p[1]-1,+p[2]);var t="*Daily Activity – "+["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]+" "+(d.getMonth()+1)+"/"+d.getDate()+"*\n";
 if(st.hs&&st.he){var a=+st.hs,b=+st.he;t+="Hours: "+((a<720)==(b<720)?fmt(a):fmt(a,1))+"–"+fmt(b,1)+"\n"}
-return t+F.map(function(f,i){return f[0]+": "+st.v[i]}).join("\n")}
+return t+F.map(function(f,i){return f[0]+": "+st.v[i]}).join("\n")+rtext()}
 function upd(){rows.forEach(function(o,i){var v=st.v[i],pc=v/o.max*100;o.r.querySelector(".num").textContent=v;o.r.querySelector(".fi").style.width=pc+"%";o.r.querySelector(".th").style.left=pc+"%";
 o.r.querySelectorAll(".chip").forEach(function(c){c.classList.toggle("on",+c.textContent===v)})});
 hp.querySelectorAll(".chip").forEach(function(c){c.classList.toggle("on",c._h?(!st.cu&&st.hs==c._h[1]&&st.he==c._h[2]):st.cu)});
 $("cust").classList.toggle("show",st.cu);$("hs").value=st.hs;$("he").value=st.he;$("date").value=st.date;
-$("pv").textContent=text();localStorage.setItem(KEY,JSON.stringify(st))}
+localStorage.setItem(KEY,JSON.stringify(st,function(k,v){return k.charAt(0)=="_"?undefined:v}));rupd();$("pv").textContent=text()}
 $("date").onchange=function(e){st.date=e.target.value||today();upd()};
 $("wa").onclick=function(){location.href="https://wa.me/?text="+encodeURIComponent(text())};
 $("cp").onclick=function(){var b=this,t=text(),ok=function(){b.textContent="Copied!";setTimeout(function(){b.textContent="Copy text"},1500)};
 function fb(){var x=document.createElement("textarea");x.value=t;document.body.appendChild(x);x.select();document.execCommand("copy");x.remove();ok()}
 if(navigator.clipboard)navigator.clipboard.writeText(t).then(ok,fb);else fb()};
-$("rs").onclick=function(){if(confirm("Reset all values?")){st=blank();upd()}};
-upd();
+$("rs").onclick=function(){if(confirm("Reset all values?")){st=blank();rrender();upd()}};
+// ---- v3: retail sales, upsells, contract growth ledger ----
+var ELS=[];var CATS=["Roofing – retail","Metal roof","Gutters","Windows","Siding","Painting","Fencing","Repairs","Solar/attic/insulation","Other"];
+var SHORT={"Roofing – retail":"Roof","Metal roof":"Metal","Gutters":"Gutters","Windows":"Windows","Siding":"Siding","Painting":"Paint","Fencing":"Fence","Repairs":"Repair","Solar/attic/insulation":"Solar/Attic","Other":"Other"};
+var FUND=[["r","Retail (out of pocket)"],["s","Insurance supplement"],["u","Upgrade (HO pays diff)"]];
+var FUNDS={r:"Retail",s:"Ins. supplement",u:"Upgrade"};
+function num(x){var n=parseFloat(String(x==null?"":x).replace(/[^0-9.]/g,""));return isFinite(n)?n:0}
+function money(n){return "$"+Math.round(n).toLocaleString("en-US")}
+function pct(a,b){return b>0?Math.round(a/b*100)+"%":"–"}
+function esc(x){return String(x==null?"":x).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function jkey(u){var a=String(u.ajx||"").trim(),n=String(u.job||"").trim().toLowerCase().replace(/\s+/g," ");return n?"n:"+n:(a?"a:"+a:"")}
+function days(){var o=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^da-\d{4}-\d{2}-\d{2}$/.test(k)){try{var d=k==KEY?st:JSON.parse(localStorage.getItem(k));if(d)o.push(d)}catch(e){}}}
+if(!o.some(function(d){return d===st}))o.push(st);return o}
+function allUps(){var o=[];days().forEach(function(d){(d.up||[]).forEach(function(u,i){if(jkey(u))o.push({d:d.date||"",i:i,u:u,cur:d===st})})});
+o.sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:a.i-b.i});return o}
+function ledger(){var m={},ord=[];allUps().forEach(function(e){var k=jkey(e.u);if(!m[k]){m[k]={name:e.u.job||("#"+e.u.ajx),ajx:e.u.ajx||"",orig:num(e.u.before),steps:[]};ord.push(k)}
+var j=m[k];if(e.u.ajx)j.ajx=e.u.ajx;var b=num(e.u.before),a=num(e.u.add);j.steps.push({d:e.d,cat:e.u.cat,f:e.u.fund,b:b,a:a,t:b+a});j.total=b+a;j.last=e.d});
+return ord.map(function(k){var j=m[k];j.key=k;j.growth=j.total-j.orig;return j})}
+function priorTotal(u){var k=jkey(u);if(!k)return null;var t=null;allUps().forEach(function(e){if(e.u===u)return;if(jkey(e.u)!==k)return;
+if(e.d<st.date||(e.d==st.date&&(!e.cur||e.i<st.up.indexOf(u))))t=num(e.u.before)+num(e.u.add)});return t}
+function catSel(v){return '<select data-k="cat">'+CATS.map(function(c){return '<option'+(c==v?' selected':'')+'>'+esc(c)+'</option>'}).join("")+'</select>'}
+function rrender(){
+$("ins").value=st.ins||"";
+var rl=$("rsl");rl.innerHTML="";st.rs.forEach(function(r,i){var e=document.createElement("div");e.className="ent";
+e.innerHTML='<button class="del">Remove</button><label class="s" style="margin-top:0">Trade</label>'+catSel(r.cat)+'<div class="row"><div><label class="s">Customer (optional)</label><input class="t" data-k="cust" value="'+esc(r.cust)+'"></div><div><label class="s">$ sold</label><input class="t" data-k="amt" inputmode="decimal" placeholder="$0" value="'+esc(r.amt)+'"></div></div>';
+bind(e,r);e.querySelector(".del").onclick=function(){if(confirm("Remove this retail sale?")){st.rs.splice(i,1);rrender();upd()}};rl.appendChild(e)});
+var ul=$("upl");ul.innerHTML="";ELS=[];st.up.forEach(function(u,i){var e=document.createElement("div");e.className="ent";
+e.innerHTML='<button class="del">Remove</button><div class="row"><div style="flex:2"><label class="s" style="margin-top:0">Job / customer</label><input class="t" data-k="job" list="jobs" autocomplete="off" value="'+esc(u.job)+'"></div><div><label class="s" style="margin-top:0">AccuLynx # (opt.)</label><input class="t" data-k="ajx" inputmode="numeric" value="'+esc(u.ajx)+'"></div></div>'+
+'<label class="s">Trade added</label>'+catSel(u.cat)+'<label class="s">Funding</label><div class="chips fund">'+FUND.map(function(f){return '<button class="chip'+(u.fund==f[0]?' on':'')+'" data-f="'+f[0]+'">'+f[1]+'</button>'}).join("")+'</div>'+
+'<div class="row"><div><label class="s">Contract before</label><input class="t" data-k="before" inputmode="decimal" placeholder="$0" value="'+esc(u.before)+'"></div><div><label class="s">Amount added</label><input class="t" data-k="add" inputmode="decimal" placeholder="$0" value="'+esc(u.add)+'"></div></div><div class="calc"></div>';
+bind(e,u);e.querySelectorAll("[data-f]").forEach(function(b){b.onclick=function(){u.fund=b.dataset.f;e.querySelectorAll("[data-f]").forEach(function(x){x.classList.toggle("on",x===b)});upd()}});
+var jf=function(){var p=priorTotal(u),bi=e.querySelector('[data-k=before]');if(p!=null&&(!u.before||u._pf)){u.before=String(p);u._pf=1;bi.value=money(p).slice(1);upd()}};
+e.querySelector('[data-k=job]').addEventListener("change",jf);e.querySelector('[data-k=job]').addEventListener("blur",jf);
+e.querySelector('[data-k=job]').addEventListener("input",function(){if(ledger().some(function(j){return j.name.toLowerCase()==this.value.trim().toLowerCase()},this))jf()});
+e.querySelector('[data-k=before]').addEventListener("input",function(){delete u._pf});
+e.querySelector(".del").onclick=function(){if(confirm("Remove this upsell?")){st.up.splice(i,1);rrender();upd()}};ELS[i]=e;ul.appendChild(e)})}
+function bind(e,o){e.querySelectorAll("[data-k]").forEach(function(x){var ev=x.tagName=="SELECT"?"change":"input";x.addEventListener(ev,function(){o[x.dataset.k]=x.value;upd()})})}
+$("ins").addEventListener("input",function(){st.ins=this.value;upd()});
+$("addr").onclick=function(){st.rs.push({cat:CATS[0],cust:"",amt:""});rrender();upd();var l=$("rsl").lastChild;l.scrollIntoView({block:"center"})};
+$("addu").onclick=function(){st.up.push({job:"",ajx:"",cat:CATS[1],fund:"r",before:"",add:""});rrender();upd();var l=$("upl").lastChild;l.scrollIntoView({block:"center"});l.querySelector("input").focus()};
+function sums(d){var r=(d.rs||[]).filter(function(x){return num(x.amt)>0}),u=(d.up||[]).filter(function(x){return num(x.add)>0}),s={ins:num(d.ins),rn:r.length,r:0,un:u.length,u:0,us:0,ur:0,rc:{},uc:[]};
+r.forEach(function(x){s.r+=num(x.amt);s.rc[x.cat]=(s.rc[x.cat]||0)+num(x.amt)});
+u.forEach(function(x){var a=num(x.add);s.u+=a;if(x.fund=="s")s.us+=a;else s.ur+=a;if(s.uc.indexOf(SHORT[x.cat]||x.cat)<0)s.uc.push(SHORT[x.cat]||x.cat)});
+s.insAll=s.ins+s.us;s.retAll=s.r+s.ur;s.all=s.ins+s.r+s.u;return s}
+function period(fn){var t={ins:0,r:0,rn:0,u:0,un:0,all:0,insAll:0,retAll:0},seen={};days().forEach(function(d){if(!d.date||!fn(d.date))return;var s=sums(d);for(var k in t)t[k]+=s[k]});return t}
+function dobj(s){var p=s.split("-");return new Date(+p[0],p[1]-1,+p[2])}
+function wtdFn(){var d=dobj(st.date),m=new Date(d);m.setDate(d.getDate()-((d.getDay()+6)%7));return function(x){var y=dobj(x);return y>=m&&y<=d}}
+function mtdFn(){return function(x){return x.slice(0,7)==st.date.slice(0,7)&&x<=st.date}}
+function split(a,b){var t=a+b;return t>0?Math.round(a/t*100)+"% / "+Math.round(b/t*100)+"%":"–"}
+function rtext(){var s=sums(st),w=period(wtdFn()),m=period(mtdFn());if(!s.all&&!w.all&&!m.all)return "";
+var t="\n\n*Retail & Add-ons*\nRetail: "+s.rn+" contract"+(s.rn==1?"":"s")+" / "+money(s.r);
+var rc=Object.keys(s.rc);if(rc.length)t+=" ("+rc.map(function(c){return (SHORT[c]||c)+" "+money(s.rc[c])}).join(", ")+")";
+t+="\nUpsells: "+s.un+" / +"+money(s.u)+(s.uc.length?" (trades: "+s.uc.join(", ")+")":"");
+st.up.forEach(function(u){var b=num(u.before),a=num(u.add);if(a>0)t+="\n• "+(u.job||"#"+u.ajx||"Job")+(u.ajx&&u.job?" #"+u.ajx:"")+": "+money(b)+" → "+money(b+a)+" (+"+money(a)+" "+(SHORT[u.cat]||u.cat)+", "+(FUNDS[u.fund]||"Retail")+")"});
+t+="\nSold today: Ins "+money(s.ins)+" | Retail "+money(s.r)+" | Upsell "+money(s.u)+" | Total "+money(s.all);
+t+="\nInsurance vs Retail $: "+split(s.insAll,s.retAll);
+t+="\nWTD: Retail "+w.rn+"/"+money(w.r)+" | Upsells "+w.un+"/+"+money(w.u)+" | Total "+money(w.all);
+t+="\nMTD: Retail "+m.rn+"/"+money(m.r)+" | Upsells "+m.un+"/+"+money(m.u)+" | Total "+money(m.all);return t}
+function rupd(){
+st.up.forEach(function(u,i){if(!ELS[i])return;var b=num(u.before),a=num(u.add),c=ELS[i].querySelector(".calc");c.textContent=(b||a)?"New contract total "+money(b+a)+(b>0?" · +"+pct(a,b)+" growth":""):""});
+var L=ledger();$("jobs").innerHTML=L.map(function(j){return '<option value="'+esc(j.name)+'">'}).join("");
+var s=sums(st),w=period(wtdFn()),m=period(mtdFn());
+var rows=[["Insurance",s.ins,w.ins,m.ins],["Retail (new)",s.r,w.r,m.r],["Upsells / add-ons",s.u,w.u,m.u],["Combined",s.all,w.all,m.all]];
+$("tots").style.gridTemplateColumns="1fr auto auto auto";
+$("tots").innerHTML='<span></span><b style="color:#667">Today</b><b style="color:#667">WTD</b><b style="color:#667">MTD</b>'+rows.map(function(r,i){var st_=i==3?' style="border-top:1px solid #ddd;padding-top:4px"':'';return '<span'+st_+'>'+(i==3?"<b style=\"text-align:left\">"+r[0]+"</b>":r[0])+'</span><b'+st_+'>'+money(r[1])+'</b><b'+st_+'>'+money(r[2])+'</b><b'+st_+'>'+money(r[3])+'</b>'}).join("")+
+'<span style="grid-column:1/-1;color:#555;font-size:13px;margin-top:4px">Insurance vs Retail $ today: '+split(s.insAll,s.retAll)+' (supplements count as insurance; upgrades as retail)</span>';
+$("ldg").innerHTML=L.length?L.slice().sort(function(a,b){return a.last<b.last?1:a.last>b.last?-1:0}).map(function(j){var tr=[];j.steps.forEach(function(x){var c=SHORT[x.cat]||x.cat;if(tr.indexOf(c)<0)tr.push(c)});
+return '<div class="job"><div class="jn">'+esc(j.name)+(j.ajx?' <span style="color:#667;font-weight:400">#'+esc(j.ajx)+'</span>':'')+'</div><div class="st">Original '+money(j.orig)+'</div>'+
+j.steps.map(function(x){return '<div class="st">'+esc(x.d.slice(5).replace("-","/"))+' · +'+money(x.a)+' '+esc(x.cat)+' ('+(FUNDS[x.f]||"Retail")+') → <b>'+money(x.t)+'</b></div>'}).join("")+
+'<div class="gr">Now '+money(j.total)+' · +'+money(j.growth)+' (+'+pct(j.growth,j.orig)+') · '+j.steps.length+' add-on'+(j.steps.length==1?'':'s')+' ('+esc(tr.join(", "))+')</div></div>'}).join(""):'<p class="sub">No upsells yet. Add one above and the job shows up here.</p>'}
+
+rrender();upd();
 </script></body></html>
